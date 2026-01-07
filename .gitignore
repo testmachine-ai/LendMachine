@@ -20,5 +20,6 @@ docs/
 # OS
 .DS_Store
 
-# Solutions (keep private)
+# Private files
 solutions.md
+.exploit-tests/

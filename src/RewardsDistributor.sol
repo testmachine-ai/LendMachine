@@ -15,6 +15,15 @@ interface IRewardsCallback {
 }
 
 /**
+ * @title IRewardAccrualCallback
+ * @notice Interface for contracts that want to receive notifications when rewards are accrued
+ * @dev Useful for smart contract wallets and composability with other protocols
+ */
+interface IRewardAccrualCallback {
+    function onRewardsAccrued(address user, uint256 newDeposit, uint256 pendingRewards) external;
+}
+
+/**
  * @title RewardsDistributor
  * @notice Distributes bonus rewards to protocol participants
  * @dev Integrates with LendMachine to provide incentives for depositors
@@ -40,8 +49,14 @@ contract RewardsDistributor is IRewardsDistributor, Ownable {
     /// @notice User deposit amounts (synced from LendMachine)
     mapping(address => uint256) public userDeposits;
 
+    /// @notice Callback recipients for reward accrual notifications
+    mapping(address => address) public rewardCallbackRecipients;
+
     /// @notice Emitted when LendMachine address is set
     event LendMachineSet(address indexed lendMachine);
+
+    /// @notice Emitted when a user sets their callback recipient
+    event RewardCallbackSet(address indexed user, address indexed recipient);
 
     /// @notice Emitted when reward rate is updated
     event RewardRateUpdated(uint256 newRate);
@@ -77,6 +92,16 @@ contract RewardsDistributor is IRewardsDistributor, Ownable {
     }
 
     /**
+     * @notice Sets a callback recipient for reward accrual notifications
+     * @dev Allows smart contract wallets to receive notifications when rewards are accrued
+     * @param recipient The address to receive callbacks (set to address(0) to disable)
+     */
+    function setRewardCallback(address recipient) external {
+        rewardCallbackRecipients[msg.sender] = recipient;
+        emit RewardCallbackSet(msg.sender, recipient);
+    }
+
+    /**
      * @notice Accrues rewards for a user based on their deposit
      * @param user The user address
      * @param depositAmount The user's current deposit amount
@@ -90,6 +115,12 @@ contract RewardsDistributor is IRewardsDistributor, Ownable {
             uint256 rewards = (userDeposits[user] * rewardRate * timeElapsed) / 1e18;
             pendingRewardsBalance[user] += rewards;
             emit RewardsAccrued(user, rewards);
+        }
+
+        // Notify callback recipient if set (for composability with smart contract wallets)
+        address callback = rewardCallbackRecipients[user];
+        if (callback != address(0)) {
+            IRewardAccrualCallback(callback).onRewardsAccrued(user, depositAmount, pendingRewardsBalance[user]);
         }
 
         // Update state
